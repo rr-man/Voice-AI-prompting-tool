@@ -247,7 +247,31 @@
         <div class="field"><label>Agent name</label><input type="text" id="agentName" placeholder="e.g. Ava"></div>
       </div>
       <div class="row">
-        <div class="field"><label>Agent role / persona</label><input type="text" id="agentRole" placeholder="e.g. front-desk virtual receptionist"></div>
+        <div class="field"><label>Agent role / persona</label>
+          <select id="agentRole" onchange="onAgentRoleChange()">
+            <option value="">Select a role…</option>
+            <option>Front-desk virtual receptionist</option>
+            <option>Customer support agent</option>
+            <option>Technical support agent</option>
+            <option>Appointment scheduling assistant</option>
+            <option>Booking and reservations assistant</option>
+            <option>Lead qualification assistant</option>
+            <option>Sales assistant</option>
+            <option>Order taking assistant</option>
+            <option>Account and billing assistant</option>
+            <option>Patient scheduling assistant</option>
+            <option>Service dispatch assistant</option>
+            <option>Collections assistant</option>
+            <option>Survey and feedback assistant</option>
+            <option>Appointment reminder assistant</option>
+            <option>After-hours answering assistant</option>
+            <option>Dispatcher / call router</option>
+            <option>Outbound sales caller</option>
+            <option>HR / recruiting assistant</option>
+            <option>IT helpdesk assistant</option>
+            <option value="__other">Other (type your own)…</option>
+          </select>
+          <input type="text" id="agentRoleOther" placeholder="Type your agent's role or persona" style="display:none;margin-top:8px;"></div>
       </div>
     </div>
 
@@ -305,7 +329,9 @@
             <option selected>Natural conversational pace</option>
             <option>Brisk &amp; efficient</option>
           </select></div>
-        <div class="field"><label>Languages</label><input type="text" id="languages" placeholder="e.g. English, Filipino" value="English"></div>
+        <div class="field"><label>Languages</label>
+          <div class="chips" id="languageChips"></div>
+          <input type="text" id="languagesOther" placeholder="Other language(s), comma separated" style="display:none;margin-top:8px;"></div>
       </div>
     </div>
 
@@ -380,8 +406,9 @@
         <div class="seg" role="tablist" aria-label="Prompt format">
           <button type="button" class="seg-btn on" id="fmtStandard" onclick="setFormat('standard')">Standard format</button>
           <button type="button" class="seg-btn" id="fmtOpenAI" onclick="setFormat('openai')">OpenAI Realtime format</button>
+          <button type="button" class="seg-btn" id="fmtTelnyx" onclick="setFormat('telnyx')">Telnyx Voice AI format</button>
         </div>
-        <a class="seg-link" href="https://developers.openai.com/cookbook/examples/realtime_prompting_guide" target="_blank" rel="noopener">OpenAI's prompting guide ↗</a>
+        <a class="seg-link" id="fmtGuideLink" href="https://developers.openai.com/cookbook/examples/realtime_prompting_guide" target="_blank" rel="noopener">OpenAI's prompting guide ↗</a>
       </div>
       <div class="preview-actions">
         <button class="btn primary" onclick="copyPrompt()">
@@ -403,6 +430,7 @@
 <script>
 /* ---------- Option data ---------- */
 const TONES = ["Professional","Friendly","Warm","Empathetic","Concise","Reassuring","Energetic","Calm","Patient","Upbeat"];
+const LANGUAGES = ["English","Spanish","Filipino (Tagalog)","French","Portuguese","Mandarin","Vietnamese","Haitian Creole","Arabic","Polish"];
 const VOICE_RULES = [
   {id:"short", on:true,  label:"Speak in short, natural sentences", desc:"One or two sentences at a time"},
   {id:"noformat", on:true, label:"No markdown, emojis, or symbols", desc:"Everything is read aloud"},
@@ -434,6 +462,7 @@ const GUARDRAILS = [
 
 /* ---------- State ---------- */
 const selectedTones = new Set(["Professional","Friendly"]);
+const selectedLanguages = new Set(["English"]);
 
 /* ---------- Render chips & toggles ---------- */
 function renderTones(){
@@ -446,6 +475,37 @@ function renderTones(){
     c.onclick=()=>{selectedTones.has(t)?selectedTones.delete(t):selectedTones.add(t);renderTones();build();};
     el.appendChild(c);
   });
+}
+function renderLanguages(){
+  const el = document.getElementById("languageChips");
+  el.innerHTML = "";
+  LANGUAGES.forEach(l=>{
+    const c=document.createElement("div");
+    c.className="chip"+(selectedLanguages.has(l)?" on":"");
+    c.textContent=l;
+    c.onclick=()=>{selectedLanguages.has(l)?selectedLanguages.delete(l):selectedLanguages.add(l);renderLanguages();build();};
+    el.appendChild(c);
+  });
+  const other=document.createElement("div");
+  const otherInput=document.getElementById("languagesOther");
+  const otherOn = otherInput.style.display!=="none" && otherInput.style.display!=="";
+  other.className="chip"+(otherOn?" on":"");
+  other.textContent="Other…";
+  other.onclick=()=>{
+    const show = otherInput.style.display==="none";
+    otherInput.style.display=show?"block":"none";
+    if(show) otherInput.focus(); else otherInput.value="";
+    renderLanguages();build();
+  };
+  el.appendChild(other);
+}
+function getLanguages(){
+  const list=[...selectedLanguages];
+  const otherInput=document.getElementById("languagesOther");
+  if(otherInput.style.display==="block" && otherInput.value.trim()){
+    otherInput.value.split(",").map(s=>s.trim()).filter(Boolean).forEach(l=>{ if(!list.includes(l)) list.push(l); });
+  }
+  return list.length ? list.join(", ") : "English";
 }
 function renderToggleGroup(containerId, items){
   const el=document.getElementById(containerId);
@@ -471,6 +531,47 @@ function onIndustryChange(){
   other.style.display=isOther?"block":"none";
   if(isOther) other.focus();
   build();
+}
+
+function onAgentRoleChange(){
+  const isOther=document.getElementById("agentRole").value==="__other";
+  const other=document.getElementById("agentRoleOther");
+  other.style.display=isOther?"block":"none";
+  if(isOther) other.focus();
+  build();
+}
+
+function setAgentRole(roleText){
+  const sel=document.getElementById("agentRole");
+  const other=document.getElementById("agentRoleOther");
+  const match=[...sel.options].find(o=>o.value!=="__other" && o.value!=="" && o.text.toLowerCase()===roleText.toLowerCase());
+  if(match){
+    sel.value=match.value;
+    other.style.display="none";
+    other.value="";
+  }else{
+    sel.value="__other";
+    other.style.display="block";
+    other.value=roleText;
+  }
+}
+
+function setLanguages(langText){
+  selectedLanguages.clear();
+  const other=document.getElementById("languagesOther");
+  const otherVals=[];
+  (langText||"English").split(",").map(s=>s.trim()).filter(Boolean).forEach(l=>{
+    const match=LANGUAGES.find(x=>x.toLowerCase()===l.toLowerCase());
+    if(match) selectedLanguages.add(match);
+    else otherVals.push(l);
+  });
+  if(otherVals.length){
+    other.value=otherVals.join(", ");
+    other.style.display="block";
+  }else{
+    other.value="";
+    other.style.display="none";
+  }
 }
 
 /* ---------- Collect rows (field → variable) ---------- */
@@ -519,19 +620,25 @@ function bullet(arr){return arr.map(x=>"- "+x.replace(/^[-•*]\s*/,"")).join("\
 function gatherFormData(){
   let industry=val("industry");
   if(industry==="__other") industry=val("industryOther");
+  let agentRole=val("agentRole");
+  if(agentRole==="__other") agentRole=val("agentRoleOther");
+  agentRole=agentRole.trim();
+  // Keep free-typed "Other" text as-is, but lowercase dropdown picks so
+  // they read naturally mid-sentence (e.g. "a front-desk virtual receptionist").
+  if(document.getElementById("agentRole").value!=="__other" && agentRole) agentRole=agentRole.charAt(0).toLowerCase()+agentRole.slice(1);
   return {
     company: val("company")||"the company",
     website: val("website"),
     industry,
     agentName: val("agentName")||"the assistant",
-    agentRole: val("agentRole")||"a voice assistant",
+    agentRole: agentRole||"a voice assistant",
     useCase: val("useCase"),
     direction: val("direction"),
     objective: val("objective"),
     tones: [...selectedTones],
     formality: val("formality"),
     pace: val("pace"),
-    languages: val("languages")||"English",
+    languages: getLanguages(),
     greeting: val("greeting"),
     collect: getCollect(),
     talk: lines("talkingPoints"),
@@ -730,23 +837,146 @@ function buildOpenAI(d){
   return p.join("\n\n");
 }
 
+/* ---------- Build: Telnyx Voice AI format ----------
+   Telnyx's prompting guide (linked above) is specifically about designing
+   the VOICE itself for their TTS engine — gender, age, timbre, pacing,
+   accent, energy — not the conversational behavior. Their recommended
+   shape is:
+     <Gender>, <Age range>. <Quality/energy description>.
+     <1–2 sentences about timbre, pacing, delivery>
+   That voice-description prompt goes into Telnyx's voice/TTS settings.
+   The conversational rules still need a separate behavior prompt, so this
+   output gives both, clearly split into the two fields Telnyx expects. */
+function toneToVoiceDimensions(tones,formality,pace){
+  const t=tones.map(x=>x.toLowerCase());
+  const has=k=>t.includes(k);
+  let quality=[];
+  if(has("warm")) quality.push("warm");
+  if(has("professional")) quality.push("clean and professional");
+  if(has("friendly")) quality.push("light and approachable");
+  if(has("empathetic")) quality.push("soft, with an understanding quality");
+  if(has("calm")) quality.push("calm and even");
+  if(has("reassuring")) quality.push("steady and reassuring");
+  if(has("energetic")||has("upbeat")) quality.push("bright and upbeat");
+  if(has("concise")) quality.push("crisp and to the point");
+  if(has("patient")) quality.push("unhurried and patient");
+  if(!quality.length) quality.push("clear and professional");
+
+  let paceWord="natural conversational pace";
+  if(/brisk/i.test(pace)) paceWord="brisk, efficient pace";
+  else if(/slow|deliberate/i.test(pace)) paceWord="slow, deliberate pace, with pauses before key details";
+  else paceWord="natural conversational pace";
+
+  let delivery="sounds attentive and easy to follow";
+  if(has("empathetic")||has("reassuring")) delivery="sounds patient, like someone giving you their full attention";
+  else if(has("energetic")||has("upbeat")) delivery="sounds engaged, like they're glad to be talking with you";
+  else if(/formal/i.test(formality)) delivery="sounds composed and polished, never rushed";
+  else if(/casual/i.test(formality)) delivery="sounds relaxed and easygoing, like a natural conversation";
+
+  return {quality:joinList(quality), pace:paceWord, delivery};
+}
+
+function buildTelnyx(d){
+  const {company,website,industry,agentName,agentRole,useCase,direction,objective,tones,formality,pace,
+    languages,greeting,collect,talk,closing,knowledge,faqs,oos,escalate,transferTo,compliance,
+    vrules,caps,grules}=d;
+
+  let p=[];
+
+  // ---- Telnyx default platform preamble (always first, verbatim) ----
+  const telnyxBoilerplate =
+`You are a helpful assistant. This is a {{telnyx_conversation_channel}} happening on {{telnyx_current_time}}. The agent is at {{telnyx_agent_target}} and the user is at {{telnyx_end_user_target}}.
+As a voice assistant, you should stay CONCISE and FRIENDLY. Limit to 2-3 sentence responses and ask followups.`;
+  p.push(telnyxBoilerplate);
+
+  // ---- Voice description (for Telnyx's voice/TTS prompt field) ----
+  const dims=toneToVoiceDimensions(tones,formality,pace);
+  const roleContext = agentRole ? `${article(agentRole)}${company!=="the company"?` for ${company}`:""}${industry?`, a ${industry.toLowerCase()} business`:""}` : "a voice AI agent";
+  const voiceDesc = `Gender and age: not specified — choose a voice that fits ${roleContext}.\n`+
+    `Quality: ${dims.quality}.\n`+
+    `Pace: ${dims.pace}.\n`+
+    `Delivery: ${dims.delivery}.\n`+
+    `Use case context: ${roleContext}${useCase?`, handling ${useCase.toLowerCase()}`:""}.`;
+  p.push(sec("VOICE DESCRIPTION (paste into Telnyx voice/TTS settings)",
+    voiceDesc+`\n\nShort-form prompt (for a single description field):\n"${dims.quality.charAt(0).toUpperCase()+dims.quality.slice(1)}. ${dims.pace.charAt(0).toUpperCase()+dims.pace.slice(1)}, ${dims.delivery}."`));
+
+  // ---- Conversation / behavior prompt (separate from voice design) ----
+  let idLine=`You are ${agentName}, ${article(agentRole)} for ${company}`;
+  idLine+= industry ? ` in the ${industry.toLowerCase()} industry.` : ".";
+  idLine += `\nYou speak with callers over the phone through Telnyx's voice platform. Everything you say is synthesized speech — write the way people talk, not the way they write.`;
+  if(website) idLine += `\nThe company website is ${website}. Read it back slowly if asked, and offer to text it instead of spelling it aloud.`;
+  p.push(sec("ROLE & IDENTITY", idLine));
+
+  let objText="";
+  if(useCase) objText += `This is ${article(useCase.toLowerCase())} line`+(direction?` handling ${direction.toLowerCase()} calls`:"")+`.\n`;
+  objText += objective ? `Your goal: ${objective}` : `Your goal is to help each caller efficiently and leave them with a clear next step.`;
+  p.push(sec("OBJECTIVE", objText));
+
+  let pers=[`Match the voice character above: ${dims.quality}, ${dims.pace}.`];
+  pers.push(`Keep a ${formality.toLowerCase()} register.`);
+  pers.push(`Speak in ${languages}${languages.includes(",")?", matching the caller's language when you can":""}.`);
+  p.push(sec("PERSONALITY & TONE", pers.join("\n")));
+
+  if(vrules.length) p.push(sec("VOICE & SPEAKING GUIDELINES", vrules.map(r=>"- "+VOICE_RULE_TEXT[r]).join("\n")));
+
+  let flow=[];
+  if(greeting) flow.push(`Opening: Begin with — "${greeting}"`);
+  if(talk.length) flow.push("During the call:\n"+bullet(talk));
+  if(collect.length){
+    const list=collect.map((c,i)=>`${i+1}. ${c.label} — store as {{${c.variable}}}`).join("\n");
+    flow.push("Collect the following, one at a time, and save each answer to its variable:\n"+list);
+  }
+  if(closing) flow.push(`Closing: ${closing}`);
+  if(flow.length) p.push(sec("CONVERSATION FLOW", flow.join("\n\n")));
+
+  let know=[];
+  if(knowledge) know.push(knowledge);
+  if(faqs.length) know.push("Frequently asked:\n"+faqs.map(f=>"- "+f).join("\n"));
+  if(know.length) p.push(sec("KNOWLEDGE", know.join("\n\n")+"\nIf you don't know something, say so honestly rather than guessing, and offer to find out or pass it on."));
+
+  let guard=[];
+  if(grules.length) guard.push("Always follow these rules:\n"+grules.map(g=>"- "+GUARDRAIL_TEXT[g]).join("\n"));
+  if(oos.length) guard.push("Do not:\n"+bullet(oos));
+  if(escalate.length) guard.push("Escalate or transfer when:\n"+bullet(escalate));
+  if(transferTo) guard.push(`Transfer destination: ${transferTo}`);
+  if(compliance) guard.push(`Compliance: ${compliance}`);
+  if(guard.length) p.push(sec("GUARDRAILS & ESCALATION", guard.join("\n\n")));
+
+  if(caps.length) p.push(sec("CAPABILITIES", "You can use the following actions when relevant:\n"+caps.map(c=>"- "+CAP_TEXT[c]).join("\n")));
+
+  return p.join("\n\n");
+}
 function sec(title,body){return `# ${title}\n${body}`;}
 function article(w){return /^[aeiou]/i.test(w)?"an "+w:"a "+w;}
 function joinList(a){return a.length<2?a[0]||"":a.length===2?a.join(" and "):a.slice(0,-1).join(", ")+", and "+a.slice(-1);}
 
 /* ---------- Format switching ---------- */
 let currentFormat="standard";
+const GUIDE_LINKS={
+  standard:null,
+  openai:"https://developers.openai.com/cookbook/examples/realtime_prompting_guide",
+  telnyx:"https://developers.telnyx.com/docs/voice/voice-design-lab/design-voice/prompting-guide"
+};
+const GUIDE_LABELS={
+  openai:"OpenAI's prompting guide ↗",
+  telnyx:"Telnyx's prompting guide ↗"
+};
 function setFormat(fmt){
   currentFormat=fmt;
   document.getElementById("fmtStandard").classList.toggle("on",fmt==="standard");
   document.getElementById("fmtOpenAI").classList.toggle("on",fmt==="openai");
+  document.getElementById("fmtTelnyx").classList.toggle("on",fmt==="telnyx");
+  const link=document.getElementById("fmtGuideLink");
+  const url=GUIDE_LINKS[fmt];
+  link.style.display = url ? "inline" : "none";
+  if(url){link.href=url;link.textContent=GUIDE_LABELS[fmt];}
   build();
 }
 
 /* ---------- Build the prompt ---------- */
 function build(){
   const d=gatherFormData();
-  const text = currentFormat==="openai" ? buildOpenAI(d) : buildStandard(d);
+  const text = currentFormat==="openai" ? buildOpenAI(d) : currentFormat==="telnyx" ? buildTelnyx(d) : buildStandard(d);
   renderOutput(text);
   document.getElementById("counter").textContent = (text.split(/\s+/).filter(Boolean).length)+" words";
   window.__prompt=text;
@@ -769,7 +999,7 @@ function copyPrompt(){
 }
 function downloadPrompt(){
   const name=(val("agentName")||"voice-agent").toLowerCase().replace(/\s+/g,"-");
-  const tag = currentFormat==="openai" ? "-openai-realtime" : "";
+  const tag = currentFormat==="openai" ? "-openai-realtime" : currentFormat==="telnyx" ? "-telnyx-voiceai" : "";
   const blob=new Blob([window.__prompt||""],{type:"text/plain"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);a.download=name+tag+"-prompt.txt";a.click();
@@ -781,18 +1011,23 @@ function toast(msg){
 }
 function resetAll(){
   document.querySelectorAll("input[type=text],textarea").forEach(e=>e.value="");
-  document.getElementById("languages").value="English";
   document.getElementById("useCase").selectedIndex=0;
   document.getElementById("direction").selectedIndex=0;
   document.getElementById("industry").selectedIndex=0;
   document.getElementById("industryOther").value="";
   document.getElementById("industryOther").style.display="none";
+  document.getElementById("agentRole").selectedIndex=0;
+  document.getElementById("agentRoleOther").value="";
+  document.getElementById("agentRoleOther").style.display="none";
   document.getElementById("formality").selectedIndex=1;
   document.getElementById("pace").selectedIndex=1;
   selectedTones.clear();["Professional","Friendly"].forEach(t=>selectedTones.add(t));
+  selectedLanguages.clear();selectedLanguages.add("English");
+  document.getElementById("languagesOther").style.display="none";
   document.getElementById("collectRows").innerHTML="";
   addCollectRow();addCollectRow();
   renderTones();
+  renderLanguages();
   renderToggleGroup("voiceToggles",VOICE_RULES);
   renderToggleGroup("capToggles",CAPS);
   renderToggleGroup("guardToggles",GUARDRAILS);
@@ -971,14 +1206,14 @@ function applyExample(ex){
   document.getElementById("industryOther").style.display="none";
   document.getElementById("industryOther").value="";
   set("agentName",ex.agentName);
-  set("agentRole",ex.agentRole);
+  setAgentRole(ex.agentRole);
   document.getElementById("useCase").value=ex.useCase;
   document.getElementById("direction").value=ex.direction;
   set("objective",ex.objective);
   selectedTones.clear();ex.tones.forEach(t=>selectedTones.add(t));
   document.getElementById("formality").value=ex.formality;
   document.getElementById("pace").value=ex.pace;
-  set("languages",ex.languages);
+  setLanguages(ex.languages);
   set("greeting",ex.greeting);
   document.getElementById("collectRows").innerHTML="";
   ex.collect.forEach(([l,v])=>addCollectRow(l,v,true));
@@ -990,7 +1225,7 @@ function applyExample(ex){
   set("escalate",ex.escalate);
   set("transferTo",ex.transferTo);
   set("compliance",ex.compliance);
-  renderTones();build();
+  renderTones();renderLanguages();build();
 }
 
 function loadExampleFor(key){
@@ -1004,6 +1239,7 @@ function loadExampleFor(key){
 
 /* ---------- Init ---------- */
 renderTones();
+renderLanguages();
 renderToggleGroup("voiceToggles",VOICE_RULES);
 renderToggleGroup("capToggles",CAPS);
 renderToggleGroup("guardToggles",GUARDRAILS);
