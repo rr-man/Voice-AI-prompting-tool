@@ -47,7 +47,7 @@
     position:sticky;top:0;z-index:20;
     background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line);
-    padding:11px 26px;display:flex;align-items:center;gap:18px;
+    padding:11px 26px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
   }
   .brand-mark{
     width:30px;height:30px;border-radius:7px;flex:none;
@@ -62,7 +62,12 @@
   .brand{display:flex;align-items:center;gap:12px;}
   h1{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0;color:var(--ink);}
   .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;}
-  .header-actions{margin-left:auto;display:flex;gap:9px;align-items:center;}
+  .credit{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);justify-content:flex-end;}
+  .li-link{display:inline-flex;align-items:center;justify-content:center;color:var(--blue);opacity:.85;transition:opacity .15s,color .15s;line-height:0;}
+  .li-link svg{width:13px;height:13px;}
+  .li-link:hover{opacity:1;color:var(--navy);}
+  .header-actions{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:7px;}
+  .header-controls{display:flex;gap:9px;align-items:center;}
   .example-select{width:auto;background:var(--navy);color:#fff;border:1px solid var(--navy);font-weight:600;font-size:12.5px;padding:8px 30px 8px 14px;border-radius:8px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;}
   .example-select:hover{background-color:var(--navy-2);}
   .example-select:focus{outline:none;box-shadow:0 0 0 3px var(--navy-dim);}
@@ -188,6 +193,13 @@
       </div>
     </div>
     <div class="header-actions">
+      <div class="credit">
+        Created by Ron Mangune
+        <a href="https://www.linkedin.com/in/ronmangune/" target="_blank" rel="noopener" aria-label="Ron Mangune on LinkedIn" class="li-link">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.61 0 4.28 2.38 4.28 5.47v6.27zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+        </a>
+      </div>
+      <div class="header-controls">
       <select id="exampleSelect" class="example-select" onchange="loadExampleFor(this.value)" aria-label="Load an example by industry">
         <option value="">Load example…</option>
         <option value="telecom">Business telecommunications</option>
@@ -202,6 +214,7 @@
         <option value="financial">Financial services</option>
       </select>
       <button class="btn" onclick="resetAll()">Reset</button>
+      </div>
     </div>
   </div>
 </header>
